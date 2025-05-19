@@ -1,5 +1,3 @@
 streamlit
 yfinance
-ta
-requests
-beautifulsoup4
+pandas
