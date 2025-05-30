@@ -1,10 +1,9 @@
 import streamlit as st
 import yfinance as yf
 import pandas as pd
-import time
-from tickers import get_all_bist_tickers
 import matplotlib.pyplot as plt
 from scipy.signal import find_peaks
+from tickers import get_all_bist_tickers  # Senin kendi modülün
 
 st.set_page_config(page_title="BIST Hisse Analiz", layout="centered")
 st.title("📈 Hisse Analiz")
@@ -65,11 +64,9 @@ def plot_stock_chart(data, ticker_name):
     ax1.plot(data.index, data["MA50"], label="MA50", color="green")
     ax1.plot(data.index, data["MA200"], label="MA200", color="red")
 
-    # Zirve (peak) noktalarını kırmızı noktalarla göster
     peak_points = data[data["Peak"]]
     ax1.plot(peak_points.index, peak_points["Close"], "ro", label="Tepe")
 
-    # Dip (trough) noktalarını yeşil noktalarla göster
     trough_points = data[data["Trough"]]
     ax1.plot(trough_points.index, trough_points["Close"], "go", label="Dip")
 
@@ -112,10 +109,8 @@ def prepare_data_for_plot(ticker):
     data["MACD_Signal"] = signal_line
     data["MACD_Hist"] = histogram
 
-    # find_peaks için numpy array kullan
     close_array = data["Close"].values
 
-    # Zirve ve dip noktalarını tespit et
     peak_idx, _ = find_peaks(close_array, distance=10, prominence=1)
     trough_idx, _ = find_peaks(-close_array, distance=10, prominence=1)
 
@@ -126,13 +121,65 @@ def prepare_data_for_plot(ticker):
 
     return data
 
-# (Buraya diğer fonksiyonlar ve ana akış kodun aynen gelir...)
+# --- Buraya scan_stocks fonksiyonu eklendi ---
 
-# Devamı (scan_stocks, sidebar, buton, vb.) aynen kalacak.
+def scan_stocks(tickers, ma_tolerance, volume_threshold, use_ma, use_volume, use_rsi, rsi_threshold, ceiling_threshold=None):
+    results = []
 
-# --- Aşağıdaki ana akış örneği ---
+    for ticker in tickers:
+        ticker_full = ticker + ".IS"
+        data = yf.download(ticker_full, period="1y", interval="1d", progress=False)
+        if data.empty or len(data) < 50:
+            continue
+        data.dropna(inplace=True)
 
-# Sidebar Ayarları
+        data["MA20"] = data["Close"].rolling(20).mean()
+        data["MA50"] = data["Close"].rolling(50).mean()
+        data["RSI"] = calculate_rsi(data["Close"])
+
+        last_close = data["Close"].iloc[-1]
+        last_ma20 = data["MA20"].iloc[-1]
+        last_ma50 = data["MA50"].iloc[-1]
+        last_rsi = data["RSI"].iloc[-1]
+
+        last_volume = data["Volume"].iloc[-1]
+        avg_volume = data["Volume"].rolling(window=20).mean().iloc[-1]
+        volume_ratio = last_volume / avg_volume if avg_volume > 0 else 0
+
+        prev_close = data["Close"].iloc[-2]
+        change_pct = ((last_close - prev_close) / prev_close) * 100
+
+        if use_ma:
+            if abs(last_close - last_ma20) / last_ma20 > ma_tolerance:
+                continue
+
+        if use_volume:
+            if volume_ratio < volume_threshold:
+                continue
+
+        if use_rsi:
+            if last_rsi > rsi_threshold:
+                continue
+
+        if ceiling_threshold is not None:
+            if change_pct < ceiling_threshold:
+                continue
+
+        results.append({
+            "Hisse": ticker,
+            "Tarih": data.index[-1].strftime("%Y-%m-%d"),
+            "Kapanış": round(last_close, 2),
+            "Değişim": round(change_pct, 2),
+            "RSI": round(last_rsi, 2),
+            "Hacim Katsayısı": round(volume_ratio, 2),
+            "MA20": round(last_ma20, 2),
+            "MA50": round(last_ma50, 2),
+        })
+
+    return pd.DataFrame(results)
+
+# --- Ana akış ---
+
 st.sidebar.header("🔧 Filtre Ayarları")
 ma_tolerance = st.sidebar.slider("MA Yakınlık Toleransı (%)", 1, 10, 5) / 100
 volume_threshold = st.sidebar.slider("Hacim Artış Eşiği (kat)", 0.0, 5.0, 1.5)
@@ -142,11 +189,9 @@ use_rsi = st.sidebar.checkbox("RSI Dip Filtresi Kullan", value=False)
 rsi_threshold = st.sidebar.slider("RSI Eşiği", 10, 50, 30)
 use_ceiling_filter = st.sidebar.checkbox("Bugün Tavan Yapanları Tara (≥ %9)", value=False)
 
-# Hisse Seçimi
 all_tickers = get_all_bist_tickers()
 selected_tickers = st.sidebar.multiselect("📌 Tarama İçin Hisse Seç (boş bırak tümü için)", options=all_tickers)
 
-# USD/TRY kurunu al
 try:
     usdtry_info = yf.Ticker("USDTRY=X").info
     usdtry = usdtry_info.get("regularMarketPrice", None)
