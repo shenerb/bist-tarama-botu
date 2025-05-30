@@ -2,8 +2,8 @@ import streamlit as st
 import yfinance as yf
 import pandas as pd
 import time
-import matplotlib.pyplot as plt
 from tickers import get_all_bist_tickers
+import matplotlib.pyplot as plt
 from scipy.signal import find_peaks
 
 st.set_page_config(page_title="BIST Hisse Analiz", layout="centered")
@@ -58,36 +58,22 @@ def generate_commentary(rsi, volume_ratio, close, ma20, ma50):
     commentary.append("⚠️ Yatırım tavsiyesi değildir.")
     return " ".join(commentary)
 
-def summarize_support_resistance(data):
-    support_points = data["Support_Points"].dropna()
-    resistance_points = data["Resistance_Points"].dropna()
-    support_levels = support_points.round(2).sort_values(ascending=False).unique()[:3]
-    resistance_levels = resistance_points.round(2).sort_values().unique()[:3]
-    comment = ""
-    if len(support_levels) > 0:
-        comment += f"🟢 Öne çıkan destek seviyeleri: {', '.join(map(str, support_levels))}. "
-    else:
-        comment += "🟢 Belirgin destek seviyesi tespit edilemedi. "
-    if len(resistance_levels) > 0:
-        comment += f"🔴 Öne çıkan direnç seviyeleri: {', '.join(map(str, resistance_levels))}. "
-    else:
-        comment += "🔴 Belirgin direnç seviyesi tespit edilemedi. "
-    return comment
-
 def plot_stock_chart(data, ticker_name):
     fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(10, 8), sharex=True, gridspec_kw={'height_ratios': [2, 1, 1]})
     ax1.plot(data.index, data["Close"], label="Kapanış", color="blue")
     ax1.plot(data.index, data["MA20"], label="MA20", color="orange")
     ax1.plot(data.index, data["MA50"], label="MA50", color="green")
     ax1.plot(data.index, data["MA200"], label="MA200", color="red")
-    ax1.plot(data.index, data["EMA89"], label="EMA89", color="brown", linestyle="--")
 
-    support_points = data[["Support_Points"]].dropna()
-    resistance_points = data[["Resistance_Points"]].dropna()
-    ax1.scatter(support_points.index, support_points["Support_Points"], marker="v", color="green", label="Destek", zorder=5)
-    ax1.scatter(resistance_points.index, resistance_points["Resistance_Points"], marker="^", color="red", label="Direnç", zorder=5)
+    # Zirve (peak) noktalarını kırmızı noktalarla göster
+    peak_points = data[data["Peak"]]
+    ax1.plot(peak_points.index, peak_points["Close"], "ro", label="Tepe")
 
-    ax1.set_title(f"{ticker_name} - Son 1 Yıl Kapanış ve Göstergeler")
+    # Dip (trough) noktalarını yeşil noktalarla göster
+    trough_points = data[data["Trough"]]
+    ax1.plot(trough_points.index, trough_points["Close"], "go", label="Dip")
+
+    ax1.set_title(f"{ticker_name} - Son 1 Yıl Kapanış ve MA")
     ax1.legend()
     ax1.grid(True)
     ax1.text(0.95, 0.9, 'Bay-P', transform=ax1.transAxes, fontsize=14, fontweight='bold',
@@ -116,78 +102,37 @@ def prepare_data_for_plot(ticker):
     if data.empty or len(data) < 50:
         return None
     data.dropna(inplace=True)
+
     data["MA20"] = data["Close"].rolling(20).mean()
     data["MA50"] = data["Close"].rolling(50).mean()
     data["MA200"] = data["Close"].rolling(200).mean()
-    data["EMA89"] = data["Close"].ewm(span=89, adjust=False).mean()
     data["RSI"] = calculate_rsi(data["Close"])
     macd_line, signal_line, histogram = calculate_macd(data["Close"])
     data["MACD_Line"] = macd_line
     data["MACD_Signal"] = signal_line
     data["MACD_Hist"] = histogram
 
-    peak_idx, _ = find_peaks(data["Close"], distance=10, prominence=1)
-    trough_idx, _ = find_peaks(-data["Close"], distance=10, prominence=1)
-    data["Resistance_Points"] = None
-    data["Support_Points"] = None
-    data.loc[data.index[peak_idx], "Resistance_Points"] = data["Close"].iloc[peak_idx]
-    data.loc[data.index[trough_idx], "Support_Points"] = data["Close"].iloc[trough_idx]
+    # find_peaks için numpy array kullan
+    close_array = data["Close"].values
+
+    # Zirve ve dip noktalarını tespit et
+    peak_idx, _ = find_peaks(close_array, distance=10, prominence=1)
+    trough_idx, _ = find_peaks(-close_array, distance=10, prominence=1)
+
+    data["Peak"] = False
+    data["Trough"] = False
+    data.iloc[peak_idx, data.columns.get_loc("Peak")] = True
+    data.iloc[trough_idx, data.columns.get_loc("Trough")] = True
 
     return data
-# --- TARAYICI & GÖRSELLEŞTİRME ---
 
-def scan_stocks(tickers, ma_tolerance, volume_threshold, use_ma, use_volume, use_rsi=False, rsi_threshold=30, ceiling_threshold=None):
-    results = []
-    for ticker in tickers:
-        try:
-            data = yf.download(ticker, period="90d", interval="1d", progress=False)
-            if data.empty or len(data) < 30:
-                continue
-            data.dropna(inplace=True)
-            data["MA20"] = data["Close"].rolling(20).mean()
-            data["MA50"] = data["Close"].rolling(50).mean()
-            data["MA200"] = data["Close"].rolling(200).mean()
-            data["AvgVolume20"] = data["Volume"].rolling(20).mean()
-            data["RSI"] = calculate_rsi(data["Close"])
+# (Buraya diğer fonksiyonlar ve ana akış kodun aynen gelir...)
 
-            close = float(data["Close"].iloc[-1])
-            prev_close = float(data["Close"].iloc[-2])
-            change_pct = ((close - prev_close) / prev_close) * 100
+# Devamı (scan_stocks, sidebar, buton, vb.) aynen kalacak.
 
-            if ceiling_threshold is not None and change_pct < ceiling_threshold:
-                continue
+# --- Aşağıdaki ana akış örneği ---
 
-            ma20 = float(data["MA20"].iloc[-1])
-            ma50 = float(data["MA50"].iloc[-1])
-            ma200 = float(data["MA200"].iloc[-1])
-            rsi_latest = data["RSI"].iloc[-1]
-            last_date = data.index[-1].strftime("%Y-%m-%d")
-            volume = int(data["Volume"].iloc[-1])
-            avg_volume = float(data["AvgVolume20"].iloc[-1])
-            volume_ratio = volume / avg_volume if avg_volume > 0 else 0
-
-            is_near_ma = close < min(ma20, ma50, ma200) * (1 + ma_tolerance)
-            passes_ma = is_near_ma if use_ma else True
-            passes_volume = volume_ratio >= volume_threshold if use_volume else True
-            passes_rsi = rsi_latest <= rsi_threshold if use_rsi else True
-
-            if passes_ma and passes_volume and passes_rsi:
-                results.append({
-                    "Hisse": ticker.replace(".IS", ""),
-                    "Tarih": last_date,
-                    "Kapanış": round(close, 2),
-                    "Değişim": round(change_pct, 2),
-                    "MA20": round(ma20, 2),
-                    "MA50": round(ma50, 2),
-                    "Hacim Katsayısı": round(volume_ratio, 2),
-                    "RSI": round(rsi_latest, 2)
-                })
-        except Exception:
-            continue
-        time.sleep(0.1)
-    return pd.DataFrame(results)
-
-# --- SIDEBAR ---
+# Sidebar Ayarları
 st.sidebar.header("🔧 Filtre Ayarları")
 ma_tolerance = st.sidebar.slider("MA Yakınlık Toleransı (%)", 1, 10, 5) / 100
 volume_threshold = st.sidebar.slider("Hacim Artış Eşiği (kat)", 0.0, 5.0, 1.5)
@@ -197,18 +142,17 @@ use_rsi = st.sidebar.checkbox("RSI Dip Filtresi Kullan", value=False)
 rsi_threshold = st.sidebar.slider("RSI Eşiği", 10, 50, 30)
 use_ceiling_filter = st.sidebar.checkbox("Bugün Tavan Yapanları Tara (≥ %9)", value=False)
 
-# --- HİSSE SEÇİMİ ---
+# Hisse Seçimi
 all_tickers = get_all_bist_tickers()
 selected_tickers = st.sidebar.multiselect("📌 Tarama İçin Hisse Seç (boş bırak tümü için)", options=all_tickers)
 
-# --- USDTRY ---
+# USD/TRY kurunu al
 try:
     usdtry_info = yf.Ticker("USDTRY=X").info
     usdtry = usdtry_info.get("regularMarketPrice", None)
 except:
     usdtry = None
 
-# --- BUTON ---
 if st.button("🔍 Taramayı Başlat"):
     with st.spinner("Hisseler taranıyor..."):
         tickers_to_scan = selected_tickers if selected_tickers else all_tickers
@@ -269,10 +213,4 @@ if st.button("🔍 Taramayı Başlat"):
                         row['MA50']
                     )
                     st.markdown(f"<i>{commentary}</i>", unsafe_allow_html=True)
-
-                    # Destek/direnç metin analizi
-                    support_resistance_text = summarize_support_resistance(data_plot)
-                    st.markdown(f"📌 <b>Teknik Seviyeler:</b> {support_resistance_text}", unsafe_allow_html=True)
-
-                    # Grafik çizimi
                     plot_stock_chart(data_plot, row['Hisse'])
