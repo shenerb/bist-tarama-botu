@@ -67,8 +67,6 @@ def plot_stock_chart(data, ticker_name):
     ax1.set_title(f"{ticker_name} - Son 1 Yıl Kapanış ve Ortalamalar")
     ax1.legend()
     ax1.grid(True)
-    ax1.text(0.95, 0.9, 'Bay-P', transform=ax1.transAxes, fontsize=14, fontweight='bold',
-             color='red', ha='right', va='top', bbox=dict(facecolor='white', alpha=0.8, edgecolor='red'))
     ax2.plot(data.index, data["RSI"], label="RSI", color="purple")
     ax2.axhline(70, color='red', linestyle='--', linewidth=1)
     ax2.axhline(30, color='green', linestyle='--', linewidth=1)
@@ -101,7 +99,7 @@ def prepare_data_for_plot(ticker):
     data["MACD_Hist"] = histogram
     return data
 
-def scan_stocks(tickers, ma_tolerance, volume_threshold, use_ma, use_volume, use_rsi=False, rsi_threshold=30, ceiling_threshold=None):
+def scan_stocks(tickers, ma_tolerance, volume_threshold, use_ma, use_volume, use_rsi=False, rsi_threshold=30, ceiling_threshold=None, use_buy_filter=False):
     results = []
     for ticker in tickers:
         try:
@@ -127,10 +125,19 @@ def scan_stocks(tickers, ma_tolerance, volume_threshold, use_ma, use_volume, use
             volume = int(data["Volume"].iloc[-1])
             avg_volume = float(data["AvgVolume20"].iloc[-1])
             volume_ratio = volume / avg_volume if avg_volume > 0 else 0
+
+            # Analist buy filtresi
+            if use_buy_filter:
+                info = yf.Ticker(ticker).info
+                recommendation = info.get("recommendationKey", "")
+                if recommendation not in ["buy", "strong_buy"]:
+                    continue
+
             is_near_ma = close < min(ma20, ma50, ma200) * (1 + ma_tolerance)
             passes_ma = is_near_ma if use_ma else True
             passes_volume = volume_ratio >= volume_threshold if use_volume else True
             passes_rsi = rsi_latest <= rsi_threshold if use_rsi else True
+
             if passes_ma and passes_volume and passes_rsi:
                 results.append({
                     "Hisse": ticker.replace(".IS", ""),
@@ -156,6 +163,7 @@ use_volume = st.sidebar.checkbox("Hacim Filtresi Kullan", value=True)
 use_rsi = st.sidebar.checkbox("RSI Dip Filtresi Kullan", value=False)
 rsi_threshold = st.sidebar.slider("RSI Eşiği", 10, 50, 30)
 use_ceiling_filter = st.sidebar.checkbox("Bugün Tavan Yapanları Tara (≥ %9)", value=False)
+use_buy_filter = st.sidebar.checkbox("Analist Buy Önerisi Olanları Tara", value=False)
 all_tickers = get_all_bist_tickers()
 selected_tickers = st.sidebar.multiselect("📌 Tarama İçin Hisse Seç (boş bırak tümü için)", options=all_tickers)
 
@@ -169,7 +177,7 @@ if st.button("🔍 Taramayı Başlat"):
     with st.spinner("Hisseler taranıyor..."):
         tickers_to_scan = selected_tickers if selected_tickers else all_tickers
         ceiling_threshold = 9.5 if use_ceiling_filter else None
-        df = scan_stocks(tickers_to_scan, ma_tolerance, volume_threshold, use_ma, use_volume, use_rsi, rsi_threshold, ceiling_threshold)
+        df = scan_stocks(tickers_to_scan, ma_tolerance, volume_threshold, use_ma, use_volume, use_rsi, rsi_threshold, ceiling_threshold, use_buy_filter)
         if df.empty:
             st.warning("Kriterlere uyan hisse bulunamadı.")
         else:
@@ -192,7 +200,6 @@ if st.button("🔍 Taramayı Başlat"):
                     elif market_cap_usd >= 1e6:
                         market_cap_usd_str = f"{market_cap_usd / 1e6:.2f} Milyon $"
 
-                # Yeni: Hedef fiyat ve analist görüşü
                 target_price = info.get("targetMeanPrice", None)
                 recommendation = info.get("recommendationKey", None)
                 target_price_str = f"{target_price:.2f} ₺" if target_price else "N/A"
