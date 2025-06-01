@@ -104,6 +104,12 @@ def prepare_data_for_plot(ticker):
     data["MACD_Line"] = macd_line
     data["MACD_Signal"] = signal_line
     data["MACD_Hist"] = histogram
+
+    # Haftalık, Aylık, Yıllık değişim (%)
+    data["Weekly_Change"] = data["Close"].pct_change(5) * 100
+    data["Monthly_Change"] = data["Close"].pct_change(21) * 100
+    data["Yearly_Change"] = data["Close"].pct_change(252) * 100
+
     return data
 
 def scan_stocks(tickers, ma_tolerance, volume_threshold, use_ma, use_volume, use_rsi=False, rsi_threshold=30, ceiling_threshold=None):
@@ -212,6 +218,15 @@ if st.button("🔍 Taramayı Başlat"):
 
                 data_plot = prepare_data_for_plot(ticker_full)
 
+                # Haftalık, Aylık, Yıllık değişim verilerini son kapanış günü için çekelim
+                weekly_change = None
+                monthly_change = None
+                yearly_change = None
+                if data_plot is not None:
+                    weekly_change = data_plot["Weekly_Change"].iloc[-1]
+                    monthly_change = data_plot["Monthly_Change"].iloc[-1]
+                    yearly_change = data_plot["Yearly_Change"].iloc[-1]
+
                 st.markdown(f"""
                 <div style="border:1px solid #ccc; border-radius:10px; padding:10px; margin:10px 0;">
                     <strong>{hisse}</strong><br>
@@ -219,10 +234,16 @@ if st.button("🔍 Taramayı Başlat"):
                     Kapanış: <b>{row['Kapanış']}</b> <span style='color:{color}'>{sign} {abs(row['Değişim'])}%</span><br>
                     RSI: <b>{row['RSI']}</b> | Hacim/Ort: <b>{row['Hacim Katsayısı']}</b><br>
                     MA20: {row['MA20']} | MA50: {row['MA50']} | <span style='color:blue'><b>EMA89: {data_plot['EMA89'].iloc[-1]:.2f}</b></span><br><br>
+
                     📊 <b>Finansal Oranlar</b><br>
                     F/K: <b>{info.get("trailingPE", "N/A")}</b><br>
                     PD/DD: <b>{info.get("priceToBook", "N/A")}</b><br>
-                    Piyasa Değeri: <b>{market_cap_usd_str}</b>
+                    Piyasa Değeri: <b>{market_cap_usd_str}</b><br><br>
+
+                    📅 <b>Getiri Değişimleri (%)</b><br>
+                    Haftalık: <b>{weekly_change:.2f}%</b><br>
+                    Aylık: <b>{monthly_change:.2f}%</b><br>
+                    Yıllık: <b>{yearly_change:.2f}%</b><br>
                 </div>
                 """, unsafe_allow_html=True)
 
