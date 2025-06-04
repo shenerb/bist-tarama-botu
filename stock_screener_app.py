@@ -246,7 +246,7 @@ if st.button("🔍 Taramayı Başlat"):
                     MA20: {row['MA20']} | MA50: {row['MA50']}<br>
                     <b>Dolaşımdaki Lot:</b> {lot}<br>
                     <b>Halka Açıklık Oranı:</b> {halka_aciklik}<br><br>
-                    📊 <b>Finansal Oranlar</b><br>
+                    <b>Finansal Oranlar</b><br>
                     F/K: <b>{info.get("trailingPE", "N/A")}</b><br>
                     PD/DD: <b>{info.get("priceToBook", "N/A")}</b><br>
                     Piyasa Değeri: <b>{market_cap_usd_str}</b>
