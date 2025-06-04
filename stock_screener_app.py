@@ -8,6 +8,10 @@ import matplotlib.pyplot as plt
 st.set_page_config(page_title="BIST Hisse Analiz", layout="centered")
 st.title("📈 Hisse Analiz")
 
+# Lot bilgisini CSV'den oku
+lot_df = pd.read_csv("Lot_say.csv")
+lot_df["Hisse"] = lot_df["Hisse"].str.upper().str.strip()
+
 def calculate_rsi(series, period=14):
     delta = series.diff()
     gain = delta.clip(lower=0)
@@ -64,7 +68,7 @@ def plot_stock_chart(data, ticker_name):
     ax1.plot(data.index, data["MA20"], label="MA20", color="orange")
     ax1.plot(data.index, data["MA50"], label="MA50", color="green")
     ax1.plot(data.index, data["MA200"], label="MA200", color="red")
-    ax1.plot(data.index, data["EMA89"], label="EMA89", color="magenta", linestyle="--")  # EMA89 eklendi
+    ax1.plot(data.index, data["EMA89"], label="EMA89", color="magenta", linestyle="--")
     
     ax1.set_title(f"{ticker_name} - Son 1 Yıl Kapanış ve Ortalamalar")
     ax1.legend()
@@ -98,7 +102,7 @@ def prepare_data_for_plot(ticker):
     data["MA20"] = data["Close"].rolling(20).mean()
     data["MA50"] = data["Close"].rolling(50).mean()
     data["MA200"] = data["Close"].rolling(200).mean()
-    data["EMA89"] = data["Close"].ewm(span=89, adjust=False).mean()  # EMA89 hesaplama eklendi
+    data["EMA89"] = data["Close"].ewm(span=89, adjust=False).mean()
     data["RSI"] = calculate_rsi(data["Close"])
     macd_line, signal_line, histogram = calculate_macd(data["Close"])
     data["MACD_Line"] = macd_line
@@ -190,7 +194,7 @@ if st.button("🔍 Taramayı Başlat"):
         else:
             st.success(f"{len(df)} hisse bulundu.")
             for _, row in df.iterrows():
-                hisse = row['Hisse']
+                hisse = row['Hisse'].upper()
                 ticker_full = hisse + ".IS"
                 info = {}
                 try:
@@ -210,13 +214,18 @@ if st.button("🔍 Taramayı Başlat"):
                 color = "green" if row['Değişim'] >= 0 else "red"
                 sign = "▲" if row['Değişim'] >= 0 else "▼"
 
+                # Lot bilgisini çek
+                lot_info = lot_df.loc[lot_df["Hisse"] == hisse, "Lot"].values
+                lot_value = lot_info[0] if len(lot_info) > 0 else "N/A"
+
                 st.markdown(f"""
                 <div style="border:1px solid #ccc; border-radius:10px; padding:10px; margin:10px 0;">
                     <strong>{hisse}</strong><br>
                     <i>Tarih: {row['Tarih']}</i><br>
                     Kapanış: <b>{row['Kapanış']}</b> <span style='color:{color}'>{sign} {abs(row['Değişim'])}%</span><br>
                     RSI: <b>{row['RSI']}</b> | Hacim/Ort: <b>{row['Hacim Katsayısı']}</b><br>
-                    MA20: {row['MA20']} | MA50: {row['MA50']}<br><br>
+                    MA20: {row['MA20']} | MA50: {row['MA50']}<br>
+                    Lot: <b>{lot_value}</b><br><br>
                     📊 <b>Finansal Oranlar</b><br>
                     F/K: <b>{info.get("trailingPE", "N/A")}</b><br>
                     PD/DD: <b>{info.get("priceToBook", "N/A")}</b><br>
@@ -238,4 +247,4 @@ if st.button("🔍 Taramayı Başlat"):
                         row['MA50']
                     )
                     st.markdown(f"<i>{commentary}</i>", unsafe_allow_html=True)
-                    plot_stock_chart(data_plot, row['Hisse'])
+                    plot_stock_chart(data_plot, hisse)
