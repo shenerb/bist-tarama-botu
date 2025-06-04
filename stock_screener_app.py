@@ -110,7 +110,7 @@ def plot_stock_chart(data, ticker_name):
     plt.tight_layout()
     st.pyplot(fig)
     plt.clf()
-  def scan_stocks(tickers, ma_tolerance, volume_threshold, use_ma, use_volume, use_rsi=False, rsi_threshold=30, ceiling_threshold=None):
+def scan_stocks(tickers, ma_tolerance, volume_threshold, use_ma, use_volume, use_rsi=False, rsi_threshold=30, ceiling_threshold=None):
     results = []
     for ticker in tickers:
         try:
