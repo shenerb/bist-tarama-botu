@@ -28,14 +28,6 @@ st.markdown("""
 
 ---
 
-## Önemli Notlar
-
-- Uygulama finansal yatırım tavsiyesi **değildir**. Yatırımlarınızda dikkatli olunuz.
-- Veri çekimi Yahoo Finance üzerinden yapılmaktadır. Bağlantı sorunları yaşanabilir.
-- Verilerin güncelliği Yahoo Finance’a bağlıdır.
-- Bazı hisseler için finansal veri veya grafik verisi bulunamayabilir.
-""")
-
 # ---------------------- Veri yükleme ----------------------
 
 @st.cache_data
