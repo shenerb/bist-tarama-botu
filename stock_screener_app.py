@@ -21,8 +21,6 @@ def load_lot_data():
 
 dolasim_lot_dict = load_lot_data()
 
-st.set_page_config(page_title="BIST Hisse Analiz", layout="centered")
-st.title("📈 Hisse Analiz")
 
 def calculate_rsi(series, period=14):
     delta = series.diff()
