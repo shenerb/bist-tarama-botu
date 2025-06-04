@@ -1,9 +1,16 @@
 import streamlit as st
+
+st.set_page_config(page_title="BIST Hisse Analiz", layout="centered")
+
 import yfinance as yf
 import pandas as pd
 import time
 import matplotlib.pyplot as plt
 from tickers import get_all_bist_tickers
+
+st.title("📈 Hisse Analiz")
+
+# ... geri kalan kod aynen devam eder ...
 
 # Dolaşımdaki lot bilgisini CSV'den yükle
 @st.cache_data
