@@ -250,3 +250,15 @@ if st.button("🔍 Taramayı Başlat"):
         else:
             st.success(f"{len(df)} hisse bulundu.")
             for _, row in df.iterrows():
+if df.empty:
+    st.warning("Kriterlere uyan hisse bulunamadı.")
+else:
+    st.success(f"{len(df)} hisse bulundu.")
+    for _, row in df.iterrows():
+        ticker = row["Hisse"] + ".IS"
+        st.subheader(f"Hisse: {row['Hisse']} - Kapanış: {row['Kapanış']} TL - Tarih: {row['Tarih']}")
+        data = prepare_data_for_plot(ticker)
+        if data is not None:
+            plot_stock_chart(data, row["Hisse"])
+        else:
+            st.warning(f"{row['Hisse']} için grafik verisi alınamadı.")
