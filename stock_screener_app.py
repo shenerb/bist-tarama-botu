@@ -188,8 +188,8 @@ def _safe_row_values(df: pd.DataFrame, date) -> tuple | None:
     except KeyError:
         return None
 
-    if pd.isna(prev_close) or pd.isna(close) or pd.isna(vol):
-        return None
+   if any(pd.isna([prev_close, close, vol])):
+    return None
 
     try:
         return float(close), float(prev_close), float(vol)
