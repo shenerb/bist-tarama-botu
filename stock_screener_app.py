@@ -256,4 +256,4 @@ if st.button("🔍 Taramayı Başlat"):
                 if data_plot is not None:
                     plot_stock_chart(data_plot, hisse)
                 else:
-                    st.info(f"{hisse} için yeterli veri bulunamadı.")ü
+                    st.info(f"{hisse} için yeterli veri bulunamadı.")
